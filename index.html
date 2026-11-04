@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Quản Lý Acc Liên Quân (Xóa Hàng Loạt)</title>
+    <title>Panel Quản Lý Acc Liên Quân (Sắp Xếp Số Đuôi)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -94,9 +94,13 @@
             </div>
             
             <div class="flex items-center gap-3 w-full md:w-auto justify-end flex-wrap">
-                <!-- Nút Xóa Hàng Loạt Mới -->
+                <!-- Nút Sắp xếp theo số đuôi -->
+                <button onclick="sortAccountsBySuffix()" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5 shadow" title="Sắp xếp danh sách tài khoản theo số đuôi tăng dần (vd: acc1, acc2, acc10)">
+                    🔢 Xếp số đuôi ⬆️
+                </button>
+                <!-- Nút Xóa Hàng Loạt -->
                 <button id="btn-delete-selected" onclick="deleteSelectedAccounts()" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition flex items-center gap-1.5 shadow opacity-50 cursor-not-allowed" disabled>
-                    🗑️ Xóa hàng loạt (<span id="selected-count">0</span>)
+                    🗑️ Xóa đã chọn (<span id="selected-count">0</span>)
                 </button>
                 <button onclick="copyFilteredAccounts()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition flex items-center gap-1.5 shadow">
                     📋 Copy Acc đã lọc
@@ -118,7 +122,9 @@
                                 <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this.checked)" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-emerald-600 focus:ring-0 cursor-pointer">
                             </th>
                             <th class="py-3.5 px-3 text-center w-12">#</th>
-                            <th class="py-3.5 px-4">TÀI KHOẢN (TK)</th>
+                            <th class="py-3.5 px-4 cursor-pointer hover:text-white transition" onclick="sortAccountsBySuffix()" title="Bấm vào đây để sắp xếp theo số đuôi">
+                                TÀI KHOẢN (TK) ⇕
+                            </th>
                             <th class="py-3.5 px-4">MẬT KHẨU (MK)</th>
                             <th class="py-3.5 px-4 text-center w-32">COPY NHANH</th>
                             <th class="py-3.5 px-4">TÊN NHÂN VẬT</th>
@@ -164,7 +170,7 @@
 
         let masterAccounts = [];
         let filteredAccounts = [];
-        let selectedAccIds = new Set(); // Lưu danh sách ID các tài khoản được chọn
+        let selectedAccIds = new Set();
 
         window.onload = function() {
             document.getElementById("cfg-bin-id").value = JSONBIN_BIN_ID;
@@ -245,6 +251,20 @@
             localStorage.setItem("lq_accounts_standalone", JSON.stringify(masterAccounts));
         }
 
+        /* --- THUẬT TOÁN SẮP XẾP THEO SỐ ĐUÔI TĂNG DẦN --- */
+        function sortAccountsBySuffix() {
+            if (masterAccounts.length === 0) return alert("Chưa có tài khoản nào để sắp xếp!");
+
+            masterAccounts.sort((a, b) => {
+                // Sử dụng Natural Sort để so sánh chuỗi chứa số (vd: acc2 < acc10)
+                return a.username.localeCompare(b.username, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
+            saveToCloud();
+            applyFilters();
+            alert("✅ Đã sắp xếp danh sách tài khoản theo số đuôi tăng dần!");
+        }
+
         function parseAndAddLines(textLines, defaultLevel = 30) {
             let count = 0;
             textLines.forEach(line => {
@@ -279,15 +299,17 @@
                         used: false
                     };
                     masterAccounts = masterAccounts.filter(acc => acc.username !== username);
-                    masterAccounts.unshift(newAcc);
+                    masterAccounts.push(newAcc); // Thêm vào cuối để dễ sắp xếp
                     count++;
                 }
             });
 
             if (count > 0) {
+                // Tự động sắp xếp sau khi thêm hàng loạt
+                masterAccounts.sort((a, b) => a.username.localeCompare(b.username, undefined, { numeric: true, sensitivity: 'base' }));
                 saveToCloud();
                 applyFilters();
-                alert(`Đã thêm thành công ${count} tài khoản!`);
+                alert(`Đã thêm thành công và tự động sắp xếp ${count} tài khoản!`);
             } else {
                 alert("Không tìm thấy định dạng hợp lệ!");
             }
@@ -337,7 +359,6 @@
             }
         }
 
-        /* --- XỬ LÝ CHỌN & XÓA HÀNG LOẠT --- */
         function toggleSelectAcc(id, isChecked) {
             if (isChecked) {
                 selectedAccIds.add(id);
@@ -371,7 +392,6 @@
                 btn.classList.add("opacity-50", "cursor-not-allowed");
             }
 
-            // Cập nhật trạng thái ô check select-all
             const selectAllBox = document.getElementById("select-all-checkbox");
             if (filteredAccounts.length > 0 && filteredAccounts.every(acc => selectedAccIds.has(acc.id))) {
                 selectAllBox.checked = true;
@@ -449,7 +469,7 @@
                         <input type="checkbox" ${isChecked ? "checked" : ""} onchange="toggleSelectAcc('${acc.id}', this.checked)" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-emerald-600 focus:ring-0 cursor-pointer">
                     </td>
                     <td class="py-3 px-3 text-center font-medium text-slate-500">${index + 1}</td>
-                    <td class="py-3 px-4 font-mono text-slate-300">${acc.username}</td>
+                    <td class="py-3 px-4 font-mono text-slate-300 font-semibold">${acc.username}</td>
                     <td class="py-3 px-4 font-mono text-slate-400">••••••••</td>
                     <td class="py-3 px-4 text-center">
                         <button onclick="navigator.clipboard.writeText('${acc.username}:${acc.password}'); alert('Đã copy: ${acc.username}:${acc.password}');" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2.5 py-1 rounded text-[11px] font-medium transition mx-auto">📋 Copy TK:MK</button>
