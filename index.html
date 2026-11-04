@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Quản Lý Acc Liên Quân (Sắp Xếp Số Đuôi)</title>
+    <title>Panel Quản Lý Acc Liên Quân (Level Mặc Định 1)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -63,7 +63,7 @@
                     <label class="block text-xs font-medium text-slate-400">Nhập lẻ (Format: <code class="text-emerald-400">user:pass</code> hoặc <code class="text-emerald-400">user|pass</code>)</label>
                     <div class="flex gap-2">
                         <input type="text" id="single-input" placeholder="account1:123456" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono">
-                        <input type="number" id="single-level" min="1" max="30" value="30" placeholder="Lv" class="w-20 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 text-xs text-center text-amber-400 focus:outline-none focus:border-emerald-500 font-bold" title="Nhập Level">
+                        <input type="number" id="single-level" min="1" max="30" value="1" placeholder="Lv" class="w-20 bg-slate-950 border border-slate-800 rounded-lg px-2 py-2 text-xs text-center text-amber-400 focus:outline-none focus:border-emerald-500 font-bold" title="Nhập Level (Mặc định 1)">
                         <button onclick="addSingleAccount()" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs px-4 py-2 rounded-lg transition shadow whitespace-nowrap">
                             Thêm lẻ
                         </button>
@@ -71,7 +71,7 @@
                 </div>
                 <!-- Dán hàng loạt -->
                 <div class="space-y-2">
-                    <label class="block text-xs font-medium text-slate-400">Dán danh sách từ file .txt (Mỗi dòng 1 acc)</label>
+                    <label class="block text-xs font-medium text-slate-400">Dán danh sách từ file .txt (Mỗi dòng 1 acc - Lv mặc định: 1)</label>
                     <div class="flex gap-2">
                         <textarea id="bulk-textarea" rows="2" placeholder="account1:123456&#10;account2|789101" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"></textarea>
                         <button onclick="addBulkAccounts()" class="bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs px-4 py-2 rounded-lg transition shadow whitespace-nowrap self-start">
@@ -251,12 +251,11 @@
             localStorage.setItem("lq_accounts_standalone", JSON.stringify(masterAccounts));
         }
 
-        /* --- THUẬT TOÁN SẮP XẾP THEO SỐ ĐUÔI TĂNG DẦN --- */
+        /* SẮP XẾP THEO SỐ ĐUÔI TĂNG DẦN */
         function sortAccountsBySuffix() {
             if (masterAccounts.length === 0) return alert("Chưa có tài khoản nào để sắp xếp!");
 
             masterAccounts.sort((a, b) => {
-                // Sử dụng Natural Sort để so sánh chuỗi chứa số (vd: acc2 < acc10)
                 return a.username.localeCompare(b.username, undefined, { numeric: true, sensitivity: 'base' });
             });
 
@@ -265,7 +264,8 @@
             alert("✅ Đã sắp xếp danh sách tài khoản theo số đuôi tăng dần!");
         }
 
-        function parseAndAddLines(textLines, defaultLevel = 30) {
+        /* LEVEL MẶC ĐỊNH LÀ 1 KHI THÊM MỚI */
+        function parseAndAddLines(textLines, defaultLevel = 1) {
             let count = 0;
             textLines.forEach(line => {
                 line = line.trim();
@@ -294,22 +294,22 @@
                         username: username,
                         password: password,
                         gameName: `Player_${username.substring(0, 5)}`,
-                        level: defaultLevel,
+                        level: defaultLevel, // Gán Level mặc định là 1
                         liveStatus: "✅",
                         used: false
                     };
                     masterAccounts = masterAccounts.filter(acc => acc.username !== username);
-                    masterAccounts.push(newAcc); // Thêm vào cuối để dễ sắp xếp
+                    masterAccounts.push(newAcc);
                     count++;
                 }
             });
 
             if (count > 0) {
-                // Tự động sắp xếp sau khi thêm hàng loạt
+                // Tự động sắp xếp theo số đuôi ngay sau khi thêm thành công
                 masterAccounts.sort((a, b) => a.username.localeCompare(b.username, undefined, { numeric: true, sensitivity: 'base' }));
                 saveToCloud();
                 applyFilters();
-                alert(`Đã thêm thành công và tự động sắp xếp ${count} tài khoản!`);
+                alert(`Đã thêm thành công ${count} tài khoản (Level mặc định: 1) và tự động sắp xếp!`);
             } else {
                 alert("Không tìm thấy định dạng hợp lệ!");
             }
@@ -317,7 +317,7 @@
 
         function addSingleAccount() {
             const val = document.getElementById("single-input").value.trim();
-            const level = parseInt(document.getElementById("single-level").value) || 30;
+            const level = parseInt(document.getElementById("single-level").value) || 1;
             if (!val) return alert("Vui lòng nhập tài khoản!");
             parseAndAddLines([val], level);
             document.getElementById("single-input").value = "";
@@ -326,7 +326,7 @@
         function addBulkAccounts() {
             const text = document.getElementById("bulk-textarea").value.trim();
             if (!text) return alert("Vui lòng dán danh sách tài khoản!");
-            parseAndAddLines(text.split(/\r?\n/));
+            parseAndAddLines(text.split(/\r?\n/), 1); // Mặc định Level 1 khi thêm hàng loạt
             document.getElementById("bulk-textarea").value = "";
         }
 
@@ -335,7 +335,7 @@
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
-                parseAndAddLines(e.target.result.split(/\r?\n/));
+                parseAndAddLines(e.target.result.split(/\r?\n/), 1); // Mặc định Level 1 khi import .txt
             };
             reader.readAsText(file, "UTF-8");
             event.target.value = "";
