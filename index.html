@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Quản Lý Acc Liên Quân (Đồng Bộ Tự Động)</title>
+    <title>Panel Quản Lý Acc Liên Quân (Xóa Hàng Loạt)</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -58,7 +58,7 @@
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
             <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wide border-b border-slate-800 pb-3">➕ Thêm tài khoản</h2>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <!-- Nhập lẻ có nhập Level -->
+                <!-- Nhập lẻ -->
                 <div class="space-y-2">
                     <label class="block text-xs font-medium text-slate-400">Nhập lẻ (Format: <code class="text-emerald-400">user:pass</code> hoặc <code class="text-emerald-400">user|pass</code>)</label>
                     <div class="flex gap-2">
@@ -82,7 +82,7 @@
             </div>
         </div>
 
-        <!-- Bộ lọc & Xuất dữ liệu -->
+        <!-- Bộ lọc & Chức năng Xóa/Xuất Dữ Liệu -->
         <div class="flex flex-col md:flex-row justify-between items-center bg-slate-900 border border-slate-800 rounded-xl p-4 shadow gap-4">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full md:w-auto">
                 <input type="text" id="filter-search" oninput="applyFilters()" placeholder="🔍 Tìm kiếm tài khoản..." class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 w-full sm:w-64">
@@ -92,7 +92,12 @@
                     <option value="unused">Chỉ lấy Acc Chưa Dùng (❌)</option>
                 </select>
             </div>
-            <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+            
+            <div class="flex items-center gap-3 w-full md:w-auto justify-end flex-wrap">
+                <!-- Nút Xóa Hàng Loạt Mới -->
+                <button id="btn-delete-selected" onclick="deleteSelectedAccounts()" class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition flex items-center gap-1.5 shadow opacity-50 cursor-not-allowed" disabled>
+                    🗑️ Xóa hàng loạt (<span id="selected-count">0</span>)
+                </button>
                 <button onclick="copyFilteredAccounts()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-lg transition flex items-center gap-1.5 shadow">
                     📋 Copy Acc đã lọc
                 </button>
@@ -108,12 +113,16 @@
                 <table class="w-full text-left border-collapse">
                     <thead>
                         <tr class="bg-slate-950 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
-                            <th class="py-3.5 px-4 text-center w-14">#</th>
+                            <!-- Checkbox chọn tất cả -->
+                            <th class="py-3.5 px-3 text-center w-10">
+                                <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this.checked)" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-emerald-600 focus:ring-0 cursor-pointer">
+                            </th>
+                            <th class="py-3.5 px-3 text-center w-12">#</th>
                             <th class="py-3.5 px-4">TÀI KHOẢN (TK)</th>
                             <th class="py-3.5 px-4">MẬT KHẨU (MK)</th>
                             <th class="py-3.5 px-4 text-center w-32">COPY NHANH</th>
                             <th class="py-3.5 px-4">TÊN NHÂN VẬT</th>
-                            <th class="py-3.5 px-4 text-center w-28">LEVEL (SỬA)</th>
+                            <th class="py-3.5 px-4 text-center w-28">LEVEL</th>
                             <th class="py-3.5 px-4 text-center w-28">BAND</th>
                             <th class="py-3.5 px-4 text-center w-32">USED</th>
                             <th class="py-3.5 px-4 text-center w-16">XÓA</th>
@@ -130,7 +139,7 @@
     <div id="config-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center hidden p-4 z-50">
         <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 w-full max-w-md space-y-4 shadow-2xl">
             <h3 class="text-base font-bold text-white flex items-center gap-2">⚙️ Cấu Hình Đồng Bộ Đám Mây</h3>
-            <p class="text-xs text-slate-400">Điền thông tin JSONBin.io của bạn để đồng bộ danh sách giữa tất cả các thiết bị.</p>
+            <p class="text-xs text-slate-400">Điền thông tin JSONBin.io để đồng bộ dữ liệu đa thiết bị.</p>
             <div class="space-y-3">
                 <div>
                     <label class="block text-[11px] font-medium text-slate-300 mb-1">JSONBin BIN ID</label>
@@ -155,16 +164,16 @@
 
         let masterAccounts = [];
         let filteredAccounts = [];
+        let selectedAccIds = new Set(); // Lưu danh sách ID các tài khoản được chọn
 
         window.onload = function() {
             document.getElementById("cfg-bin-id").value = JSONBIN_BIN_ID;
             document.getElementById("cfg-api-key").value = JSONBIN_API_KEY;
-            syncDataFromCloud(false); // Tự động load ngầm khi mở web
+            syncDataFromCloud(false);
         };
 
         function toggleConfigModal() {
-            const modal = document.getElementById("config-modal");
-            modal.classList.toggle("hidden");
+            document.getElementById("config-modal").classList.toggle("hidden");
         }
 
         function saveConfig() {
@@ -173,7 +182,7 @@
             localStorage.setItem("lq_bin_id", JSONBIN_BIN_ID);
             localStorage.setItem("lq_api_key", JSONBIN_API_KEY);
             toggleConfigModal();
-            syncDataFromCloud(true); // Đồng bộ và hiển thị thông báo thành công
+            syncDataFromCloud(true);
         }
 
         async function syncDataFromCloud(showAlert = false) {
@@ -190,26 +199,20 @@
                         masterAccounts = data.record.accounts || [];
                         statusEl.innerText = "☁️ Đã đồng bộ Cloud đa thiết bị";
                         statusEl.className = "text-emerald-400 font-medium";
-                        if (showAlert) {
-                            alert("✅ Đồng bộ dữ liệu thành công từ Cloud!");
-                        }
+                        if (showAlert) alert("✅ Đồng bộ dữ liệu thành công từ Cloud!");
                     }
                 } catch (err) {
                     statusEl.innerText = "⚠️ Lỗi kết nối Cloud (Lưu máy cục bộ)";
                     statusEl.className = "text-rose-400 font-medium";
                     loadFromLocalStorage();
-                    if (showAlert) {
-                        alert("❌ Đồng bộ thất bại! Vui lòng kiểm tra lại Bin ID và Master Key.");
-                    }
+                    if (showAlert) alert("❌ Đồng bộ thất bại! Kiểm tra lại Bin ID/Master Key.");
                 }
             } else {
                 statusEl.innerText = "📱 Đang lưu trên máy này (Chưa cấu hình Cloud)";
                 statusEl.className = "text-amber-400 font-medium";
                 loadFromLocalStorage();
-                if (showAlert) {
-                    alert("⚠️ Bạn chưa cấu hình thông tin JSONBin. Vui lòng bấm 'Cấu hình Cloud' trước!");
-                }
             }
+            selectedAccIds.clear();
             applyFilters();
         }
 
@@ -284,7 +287,7 @@
             if (count > 0) {
                 saveToCloud();
                 applyFilters();
-                alert(`Đã thêm thành công ${count} tài khoản và đồng bộ lên Cloud!`);
+                alert(`Đã thêm thành công ${count} tài khoản!`);
             } else {
                 alert("Không tìm thấy định dạng hợp lệ!");
             }
@@ -334,6 +337,71 @@
             }
         }
 
+        /* --- XỬ LÝ CHỌN & XÓA HÀNG LOẠT --- */
+        function toggleSelectAcc(id, isChecked) {
+            if (isChecked) {
+                selectedAccIds.add(id);
+            } else {
+                selectedAccIds.delete(id);
+            }
+            updateDeleteButtonState();
+        }
+
+        function toggleSelectAll(isChecked) {
+            filteredAccounts.forEach(acc => {
+                if (isChecked) {
+                    selectedAccIds.add(acc.id);
+                } else {
+                    selectedAccIds.delete(acc.id);
+                }
+            });
+            renderUI();
+        }
+
+        function updateDeleteButtonState() {
+            const count = selectedAccIds.size;
+            document.getElementById("selected-count").innerText = count;
+            const btn = document.getElementById("btn-delete-selected");
+
+            if (count > 0) {
+                btn.disabled = false;
+                btn.classList.remove("opacity-50", "cursor-not-allowed");
+            } else {
+                btn.disabled = true;
+                btn.classList.add("opacity-50", "cursor-not-allowed");
+            }
+
+            // Cập nhật trạng thái ô check select-all
+            const selectAllBox = document.getElementById("select-all-checkbox");
+            if (filteredAccounts.length > 0 && filteredAccounts.every(acc => selectedAccIds.has(acc.id))) {
+                selectAllBox.checked = true;
+            } else {
+                selectAllBox.checked = false;
+            }
+        }
+
+        function deleteSelectedAccounts() {
+            const count = selectedAccIds.size;
+            if (count === 0) return;
+
+            if (confirm(`Bạn có chắc chắn muốn XÓA HÀNG LOẠT ${count} tài khoản đã chọn?`)) {
+                masterAccounts = masterAccounts.filter(acc => !selectedAccIds.has(acc.id));
+                selectedAccIds.clear();
+                saveToCloud();
+                applyFilters();
+                alert(`Đã xóa thành công ${count} tài khoản!`);
+            }
+        }
+
+        function deleteAccount(id) {
+            if (confirm("Bạn có chắc muốn xóa tài khoản này?")) {
+                masterAccounts = masterAccounts.filter(a => a.id !== id);
+                selectedAccIds.delete(id);
+                saveToCloud();
+                applyFilters();
+            }
+        }
+
         function applyFilters() {
             let result = [...masterAccounts];
             const keyword = document.getElementById("filter-search").value.toLowerCase().trim();
@@ -362,7 +430,8 @@
             tbody.innerHTML = "";
 
             if (filteredAccounts.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="9" class="py-10 text-center text-slate-500 italic">Chưa có tài khoản nào trong hệ thống.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="10" class="py-10 text-center text-slate-500 italic">Chưa có tài khoản nào trong hệ thống.</td></tr>`;
+                updateDeleteButtonState();
                 return;
             }
 
@@ -370,11 +439,16 @@
                 const tr = document.createElement("tr");
                 tr.className = "hover:bg-slate-800/50 transition";
                 const isUsed = acc.used === true;
+                const isChecked = selectedAccIds.has(acc.id);
+
                 const activeCheckStyle = isUsed ? "opacity-100 scale-110 font-bold text-emerald-400 bg-emerald-500/20 border-emerald-500/40 shadow-sm" : "opacity-25 grayscale hover:opacity-50 text-slate-500 border-slate-800";
                 const activeCrossStyle = !isUsed ? "opacity-100 scale-110 font-bold text-rose-500 bg-rose-500/20 border-rose-500/40 shadow-sm" : "opacity-25 grayscale hover:opacity-50 text-slate-500 border-slate-800";
 
                 tr.innerHTML = `
-                    <td class="py-3 px-4 text-center font-medium text-slate-500">${index + 1}</td>
+                    <td class="py-3 px-3 text-center">
+                        <input type="checkbox" ${isChecked ? "checked" : ""} onchange="toggleSelectAcc('${acc.id}', this.checked)" class="w-4 h-4 rounded border-slate-700 bg-slate-950 text-emerald-600 focus:ring-0 cursor-pointer">
+                    </td>
+                    <td class="py-3 px-3 text-center font-medium text-slate-500">${index + 1}</td>
                     <td class="py-3 px-4 font-mono text-slate-300">${acc.username}</td>
                     <td class="py-3 px-4 font-mono text-slate-400">••••••••</td>
                     <td class="py-3 px-4 text-center">
@@ -399,14 +473,8 @@
                 `;
                 tbody.appendChild(tr);
             });
-        }
 
-        function deleteAccount(id) {
-            if (confirm("Bạn có chắc muốn xóa tài khoản này?")) {
-                masterAccounts = masterAccounts.filter(a => a.id !== id);
-                saveToCloud();
-                applyFilters();
-            }
+            updateDeleteButtonState();
         }
 
         function copyFilteredAccounts() {
